@@ -1,0 +1,46 @@
+name: werss-collector
+x-runtime: &runtime
+  image: werss-collector:0.1.0
+  build:
+    context: ..
+    dockerfile: deploy/collector.Dockerfile
+  init: true
+  restart: unless-stopped
+  environment:
+    COLLECTOR_DATA_DIR: /app/data/collector
+    COLLECTOR_MOCK: ${COLLECTOR_MOCK:-false}
+    COLLECTOR_BROWSER: ${COLLECTOR_BROWSER:-false}
+    COLLECTOR_REQUEST_INTERVAL_SECONDS: ${COLLECTOR_REQUEST_INTERVAL_SECONDS:-20}
+    COLLECTOR_JOB_TIMEOUT_SECONDS: "90"
+    COLLECTOR_SECURE_COOKIE: ${COLLECTOR_SECURE_COOKIE:-false}
+  volumes:
+    - collector-data:/app/data
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  shm_size: 256mb
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "3"
+services:
+  web:
+    <<: *runtime
+    command: ["python", "-m", "core.collection.cli", "serve", "--host", "0.0.0.0"]
+    ports:
+      - "127.0.0.1:${COLLECTOR_PORT:-8001}:8001"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/api/v1/collection/health/ready', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+  worker:
+    <<: *runtime
+    command: ["python", "-m", "core.collection.cli", "worker"]
+    depends_on:
+      web:
+        condition: service_healthy
+volumes:
+  collector-data:
