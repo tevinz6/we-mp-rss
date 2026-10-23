@@ -28,3 +28,10 @@ test.yaml
 .travis
 test.py
 .codeartsdoer
+# Collector runtime and generated test files
+.pytest_cache/
+.coverage*
+htmlcov/
+*.sqlite
+*.sqlite3
+collector-test-results/
